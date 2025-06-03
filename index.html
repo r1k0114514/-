@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>粗チ君のタイピングアドベンチャー</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+  <style>
+    body {
+      font-family: 'Press Start 2P', cursive;
+      background: linear-gradient(135deg, #e0ffec, #ccf2ff);
+      background-size: 300% 300%;
+      animation: rainbow 15s ease infinite;
+      margin: 0;
+      padding: 0;
+      color: #222;
+    }
+    @keyframes rainbow {
+      0% {background-position: 0% 50%;}
+      50% {background-position: 100% 50%;}
+      100% {background-position: 0% 50%;}
+    }
+    .container {
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 30px;
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 20px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+    h1 { font-size: 24px; margin-bottom: 20px; }
+    p { font-size: 14px; margin: 10px 0; }
+    .hidden { display: none; }
+    button {
+      font-family: 'Press Start 2P', cursive;
+      background-color: #86e0a3;
+      border: 2px solid #55aa88;
+      padding: 10px 25px;
+      margin: 10px;
+      font-size: 12px;
+      cursor: pointer;
+      border-radius: 10px;
+      transition: all 0.2s ease;
+    }
+    button:hover {
+      background-color: #55aa88;
+      color: white;
+      transform: scale(1.05);
+    }
+    .locked {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    #wordInput {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 16px;
+      width: 90%;
+      padding: 12px;
+      border: 2px solid #aaa;
+      border-radius: 10px;
+      margin-top: 15px;
+    }
+    .hp-bar {
+      width: 100%;
+      background: #ccc;
+      border-radius: 8px;
+      margin: 5px 0;
+      height: 20px;
+      overflow: hidden;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .hp-fill {
+      height: 100%;
+      text-align: center;
+      font-size: 12px;
+      line-height: 20px;
+      color: white;
+    }
+    .enemy-hp .hp-fill { background: red; }
+    .player-hp .hp-fill { background: green; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div id="intro">
+    <h1>🌰 粗チ君のタイピングアドベンチャー 🌰</h1>
+    <p>ワッキーワッキーワッキー!</p>
+    <button onclick="startStory()">ゲームを始める</button>
+  </div>
+
+  <div id="story" class="hidden">
+    <p>むかしむかし、タイプの力を持つ勇者が現れた…。</p>
+    <button onclick="chooseCharacter()">キャラクター選択へ</button>
+  </div>
+
+  <div id="characterSelect" class="hidden">
+    <p>キャラクターを選んでください：</p>
+    <button onclick="selectCharacter('粗チ君')">粗チ君</button>
+    <button onclick="selectCharacter('ワッキー君')">ワッキー君</button>
+    <button onclick="selectCharacter('量位置君')">量位置君</button>
+  </div>
+
+  <div id="stageSelect" class="hidden">
+    <h2>ステージを選択</h2>
+    <div id="stages"></div>
+  </div>
+
+  <div id="game" class="hidden">
+    <p><strong>敵のHP:</strong></p>
+    <div class="hp-bar enemy-hp"><div id="enemyHp" class="hp-fill">100</div></div>
+    <p><strong>あなたのHP:</strong></p>
+    <div class="hp-bar player-hp"><div id="playerHp" class="hp-fill">100</div></div>
+    <p><strong>現在のワード:</strong> <span id="currentWord"></span></p>
+    <input type="text" id="wordInput" oninput="checkInput()" autofocus>
+    <br><br>
+    <button onclick="useSpecial()" id="specialBtn" class="hidden">必殺技発動！</button>
+  </div>
+
+  <div id="clearScreen" class="hidden">
+    <h2>🎉 ゲームクリア！ 🎉</h2>
+    <p>全ステージをクリアしました！おめでとう！</p>
+  </div>
+</div>
+
+<script>
+const stageWordData = {
+  "stage_1": ["猫","犬","水","山","川"],
+  "stage_2": ["猫缶","犬缶","水道水","山脈残","ワッキー川"],
+  // ...同様に "stage_3" ～ "stage_14" まで続けて記述可能
+};
+
+let player = {
+  name: "",
+  level: 1,
+  xp: 0,
+  hp: 100,
+  maxHp: 100,
+  attack: 10
+};
+
+let enemy = {
+  hp: 100,
+  maxHp: 100,
+  attack: 5,
+  interval: 5000
+};
+
+let currentStage = 1;
+let maxStageUnlocked = 1;
+let words = [], currentWord = "";
+
+function startStory() {
+  document.getElementById("intro").classList.add("hidden");
+  document.getElementById("story").classList.remove("hidden");
+}
+function chooseCharacter() {
+  document.getElementById("story").classList.add("hidden");
+  document.getElementById("characterSelect").classList.remove("hidden");
+}
+function selectCharacter(name) {
+  player.name = name;
+  document.getElementById("characterSelect").classList.add("hidden");
+  showStages();
+}
+function showStages() {
+  document.getElementById("stageSelect").classList.remove("hidden");
+  const container = document.getElementById("stages");
+  container.innerHTML = "";
+  for (let i = 1; i <= 14; i++) {
+    const btn = document.createElement("button");
+    btn.textContent = `ステージ ${i}`;
+    if (i > maxStageUnlocked) btn.classList.add("locked");
+    btn.onclick = () => startStage(i);
+    container.appendChild(btn);
+  }
+}
+function startStage(stage) {
+  currentStage = stage;
+  words = [...stageWordData[`stage_${stage}`]];
+  nextWord();
+  setupBattle();
+  document.getElementById("stageSelect").classList.add("hidden");
+  document.getElementById("game").classList.remove("hidden");
+}
+function nextWord() {
+  currentWord = words[Math.floor(Math.random() * words.length)];
+  document.getElementById("currentWord").textContent = currentWord;
+  document.getElementById("wordInput").value = "";
+}
+function setupBattle() {
+  const stageFactor = currentStage;
+  player.hp = player.maxHp = 100 + (player.level - 1) * 10;
+  enemy.hp = enemy.maxHp = 100 + stageFactor * 10;
+  enemy.attack = 5 + stageFactor * 2;
+  enemy.interval = 5000 - stageFactor * 200;
+  updateHpBars();
+  startEnemyAttack();
+}
+function updateHpBars() {
+  document.getElementById("enemyHp").textContent = enemy.hp;
+  document.getElementById("playerHp").textContent = player.hp;
+  document.getElementById("enemyHp").style.width = (enemy.hp / enemy.maxHp * 100) + "%";
+  document.getElementById("playerHp").style.width = (player.hp / player.maxHp * 100) + "%";
+}
+function checkInput() {
+  const input = document.getElementById("wordInput").value;
+  if (input === currentWord) {
+    enemy.hp -= player.attack;
+    if (enemy.hp <= 0) {
+      winBattle();
+    } else {
+      nextWord();
+    }
+    updateHpBars();
+  }
+}
+function winBattle() {
+  player.xp += 20;
+  if (player.xp >= player.level * 50) {
+    player.xp = 0;
+    player.level++;
+    player.attack += 5;
+    player.maxHp += 20;
+  }
+  document.getElementById("game").classList.add("hidden");
+  if (currentStage === 14) {
+    document.getElementById("clearScreen").classList.remove("hidden");
+  } else {
+    maxStageUnlocked = Math.max(maxStageUnlocked, currentStage + 1);
+    showStages();
+    document.getElementById("stageSelect").classList.remove("hidden");
+  }
+}
+function startEnemyAttack() {
+  clearInterval(enemy._interval);
+  enemy._interval = setInterval(() => {
+    player.hp -= enemy.attack;
+    if (player.hp <= 0) {
+      alert("やられた！");
+      document.getElementById("game").classList.add("hidden");
+      showStages();
+      document.getElementById("stageSelect").classList.remove("hidden");
+      clearInterval(enemy._interval);
+    }
+    updateHpBars();
+  }, enemy.interval);
+}
+function useSpecial() {
+  // 必殺技の仕様をここに追加可能
+}
+</script>
+</body>
+</html>
